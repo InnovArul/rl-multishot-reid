@@ -5,15 +5,14 @@ import random
 import glob
 import numpy as np
 
-ROOT = '/data3/matt/MARS'
-output = '/data3/matt/MARS/recs'
-im2rec = '/home/tina/reid/mxnet/bin/im2rec'
-
+ROOT = os.path.abspath('../mars')
+output = os.path.abspath('../mars/mxnet-recs')
+im2rec = '/home/arul/anaconda3/envs/mxnet-rl/lib/python3.7/site-packages/mxnet/tools/im2rec.py'
 
 def load_split():
     train, test = [], []
     cnt = 0
-    for i in xrange(386):
+    for i in range(386):
         cam_a = glob.glob('%s/multi_shot/cam_a/person_%04d/*.png' % (ROOT, i))
         cam_b = glob.glob('%s/multi_shot/cam_b/person_%04d/*.png' % (ROOT, i))
         if len(cam_a) * len(cam_b) > 0:
@@ -31,21 +30,24 @@ def rnd_pos(N, i):
     return x + 1 if x == i else x
 
 def save_rec(lst, path, name):
-    lst_file = '%s/%s.lst' % (path, name)
-    rec_file = '%s/%s.rec' % (path, name)
+    prefix = '%s/%s' % (path, name)
+    lst_file = prefix + '.lst'
+
     #print lst_file, rec_file, '%s %s %s %s resize=128 quality=90' % (im2rec, lst_file, ROOT, rec_file)
     fo = csv.writer(open(lst_file, "w"), delimiter='\t', lineterminator='\n')
     for item in lst:
         fo.writerow(item)
-    print 'echo 123456 | sudo -S %s %s %s %s resize=128 quality=90 &' % (im2rec, lst_file, ROOT, rec_file)
-    #subprocess.call('%s %s %s %s resize=128 quality=90' % (im2rec, lst_file, ROOT, rec_file))
+
+    command = '%s "%s" "%s" --resize 128 --quality 90' % (im2rec, prefix, ROOT) 
+    print(command)
+    os.system(command)
 
 def save_train(f, is_valid=False):
-    plst, nlst, cnt, N, pool = [], [], 0, len(f), [_ for _ in xrange(len(f))]
-    for _ in xrange(100000 if not is_valid else 2000):
+    plst, nlst, cnt, N, pool = [], [], 0, len(f), [_ for _ in range(len(f))]
+    for _ in range(100000 if not is_valid else 2000):
         ts = random.sample(pool, 96)
         ns, ps = ts[:64], ts[64:]
-        for r in xrange(32):
+        for r in range(32):
             i, x, y = ps[r], ns[r + r], ns[r + r + 1]
             p1c = random.randint(0, len(f[i]) - 1)
             p2c = rnd_pos(len(f[i]), p1c)
@@ -65,7 +67,7 @@ def save_train(f, is_valid=False):
 
 def gen_train():
     pool = []
-    for i in xrange(1500):
+    for i in range(1500):
         images = glob.glob('%s/bbox_train/%04d/*.jpg' % (ROOT, i))
         f = dict()
         for k in images:
@@ -73,7 +75,7 @@ def gen_train():
             ct = name[4:6]
             if not ct in f:
                 f[ct] = []
-            f[ct].append(k[len(ROOT):])
+            f[ct].append(k)
         g = []
         for x in f:
             if len(f[x]) > 1:

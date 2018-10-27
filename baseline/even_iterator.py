@@ -16,10 +16,10 @@ class Even_iterator(mx.io.DataIter):
         self.shuffle = shuffle
 
         self.data, self.labels = Even_iterator.load_data(lst_name)
-        print "load data over"
+        print("load data over")
         self.data_num = self.labels.shape[0]
         self.label_num = 1 if len(self.labels.shape) == 1 else self.labels.shape[1]
-        print self.data_num, self.label_num
+        print(self.data_num, self.label_num)
         self.reset()
 
     @staticmethod

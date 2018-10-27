@@ -251,11 +251,11 @@ def test_op():
         # check
         rel_err = reldiff(grad_expect, grad)
         if rel_err > threshold:
-            print 'gradient check failed'
-            print 'expected %lf given %lf, relative error %lf'%(grad_expect, grad, rel_err)
+            print('gradient check failed')
+            print('expected %lf given %lf, relative error %lf'%(grad_expect, grad, rel_err))
             return False
         else:
-            print 'gradient check pass'
+            print('gradient check pass')
             return True
 
     # test forward
@@ -267,19 +267,19 @@ def test_op():
     data_gc_pass = 0
     for i in range(args['data'].shape[0]):
         for j in range(args['data'].shape[1]):
-            print 'gradient check on data[%d, %d]'%(i, j)
+            print('gradient check on data[%d, %d]'%(i, j))
             if gradient_check('data', i, j):
                 data_gc_pass += 1
     # gradient check on weight
     weight_gc_pass = 0
     for i in range(args['weight'].shape[0]):
         for j in range(args['weight'].shape[1]):
-            print 'gradient check on weight[%d, %d]'%(i, j)
+            print('gradient check on weight[%d, %d]'%(i, j))
             if gradient_check('weight', i, j):
                 weight_gc_pass += 1
-    print '===== Summary ====='
-    print 'gradient on data pass ratio is %lf'%(float(data_gc_pass) / args['data'].size)
-    print 'gradient on weight pass ratio is %lf'%(float(weight_gc_pass) / args['weight'].size)
+    print('===== Summary =====')
+    print('gradient on data pass ratio is %lf'%(float(data_gc_pass) / args['data'].size))
+    print('gradient on weight pass ratio is %lf'%(float(weight_gc_pass) / args['weight'].size))
 
 
 if __name__ == '__main__':
@@ -294,14 +294,14 @@ if __name__ == '__main__':
     parser.add_argument('--scale', type=float, default=1, help="beta scale of every mini-batch")
     parser.add_argument('--op-impl', type=str, choices=['py', 'cpp'], default='py', help="test op implementation")
     cmd_args = parser.parse_args()
-    print cmd_args
+    print(cmd_args)
 
     # check
     if cmd_args.op_impl == 'cpp':
         try:
             op_creator = mx.sym.LSoftmax
         except AttributeError:
-            print 'No cpp operator for LSoftmax, Skip test'
+            print('No cpp operator for LSoftmax, Skip test')
             import sys
             sys.exit(0)
 

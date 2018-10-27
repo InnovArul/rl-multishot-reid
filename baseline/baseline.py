@@ -11,6 +11,7 @@ import lsoftmax
 from verifi_iterator import verifi_iterator
 from even_iterator import Even_iterator
 import importlib
+import os
 
 
 def build_network(symbol, num_id, batchsize):
@@ -26,8 +27,8 @@ def build_network(symbol, num_id, batchsize):
     dropout = l2#mx.symbol.Dropout(data=l2, name='dropout1')       
     
     if args.lsoftmax:
-        #fc1 = mx.symbol.Custom(data=flatten, num_hidden=num_id, beta=1000, margin=3, scale=0.9999, beta_min=1, op_type='LSoftmax', name='lsoftmax')
-        fc1 = mx.symbol.LSoftmax(data=flatten, num_hidden=num_id, beta=1000, margin=4, scale=0.99999, beta_min=3, name='lsoftmax')
+        fc1 = mx.symbol.Custom(data=flatten, num_hidden=num_id, beta=1000, margin=3, scale=0.9999, beta_min=1, op_type='LSoftmax', name='lsoftmax')
+        #fc1 = mx.symbol.LSoftmax(data=flatten, num_hidden=num_id, beta=1000, margin=4, scale=0.99999, beta_min=3, name='lsoftmax')
     else:
         fc1 = mx.symbol.FullyConnected(data=flatten, num_hidden=num_id, name='cls_fc1')
 
@@ -55,9 +56,16 @@ def build_network(symbol, num_id, batchsize):
 
 class Multi_Metric(mx.metric.EvalMetric):
     """Calculate accuracies of multi label"""
-    def __init__(self, num=None, cls=1):
-        super(Multi_Metric, self).__init__('multi-metric', num)
+    def __init__(self, num=None, cls=1, logger=None):
+        self.logger = logger
+        self.num = num
+        super(Multi_Metric, self).__init__('multi-metric', num=num)
         self.cls = cls
+        
+    def reset(self):
+        """Resets the internal evaluation result to initial state."""
+        self.num_inst = 0 if self.num is None else [0] * self.num
+        self.sum_metric = 0.0 if self.num is None else [0.0] * self.num
 
     def update(self, labels, preds):
         # mx.metric.check_label_shapes(labels, preds)
@@ -85,6 +93,38 @@ class Multi_Metric(mx.metric.EvalMetric):
             else:
                 self.sum_metric[i] += np.sum(pred)
                 self.num_inst[i] += len(pred)
+
+
+    def get(self):
+        """Gets the current evaluation result.
+            Returns
+            -------
+            names : list of str
+            Name of the metrics.
+            values : list of float
+            Value of the evaluations.
+        """
+        #self.logger.info(self.num)
+        if self.num is None:
+            return super(Multi_Metric, self).get()
+        else:
+            acc = self.sum_metric[0] / self.num_inst[0] if self.num_inst[0] != 0 else float('nan')
+            loss = [acc] + [self.sum_metric[i] for i in range(self.cls, self.num)]
+            return zip(*(('%s-task%d'%(self.name, i), loss[i]) for i in range(self.num)))
+
+    def get_name_value(self):
+        """Returns zipped name and value pairs.
+         Returns
+        -------
+        list of tuples
+            A (name, value) tuple list.
+        """
+        if self.num is None:
+            return super(Multi_Metric, self).get_name_value()
+        name, value = self.get()
+        return list(zip(name, value))
+
+
 
 def get_imRecordIter(name, input_shape, batch_size, kv, shuffle=False, aug=False, even_iter=False):
     '''
@@ -119,28 +159,28 @@ def get_imRecordIter(name, input_shape, batch_size, kv, shuffle=False, aug=False
             label_width=1,
             round_batch=False,
             data_shape=input_shape,
-            batch_size=batch_size / 2,
+            batch_size=int(batch_size / 2),
             num_parts=kv.num_workers,
             part_index=kv.rank)
 
     return dataiter
 
 
-def get_iterators(batch_size, input_shape, train, test, kv, gpus=1):
+def get_iterators(batch_size, input_shape, train, test, set_index, kv, gpus=1):
     '''
     use image lists to generate data iterators
     '''
     train_dataiter1 = get_imRecordIter(
-        '%s_even' % train, input_shape, batch_size,
+        '%s_even%s' % (train, set_index), input_shape, batch_size,
         kv, shuffle=args.even_iter, aug=True, even_iter=args.even_iter)
     train_dataiter2 = get_imRecordIter(
-        '%s_rand' % train, input_shape, batch_size,
+        '%s_rand%s' % (train, set_index), input_shape, batch_size,
         kv, shuffle=True, aug=True)
     val_dataiter1 = get_imRecordIter(
-        '%s_even' % test, input_shape, batch_size,
+        '%s_even%s' % (test, set_index), input_shape, batch_size,
         kv, shuffle=False, aug=False, even_iter=args.even_iter)
     val_dataiter2 = get_imRecordIter(
-        '%s_rand' % test, input_shape, batch_size,
+        '%s_rand%s' % (test, set_index), input_shape, batch_size,
         kv, shuffle=False, aug=False)
 
     return verifi_iterator(
@@ -161,13 +201,13 @@ def parse_args():
                         help='the number of training examples')
     parser.add_argument('--num-id', type=int, default=150,
                         help='the number of training ids')
-    parser.add_argument('--batch-size', type=int, default=4,
+    parser.add_argument('--batch-size', type=int, default=64,
                         help='the batch size')
     parser.add_argument('--lr', type=float, default=1e-2,
                         help='the initial learning rate')
     parser.add_argument('--num-epoches', type=int, default=1,
                         help='the number of training epochs')
-    parser.add_argument('--mode', type=str, default='ilds_baseline_b4',
+    parser.add_argument('--mode', type=str, default='ilds_baseline_b0',
                         help='save names of model and log')
     parser.add_argument('--lsoftmax', action='store_true', default=False,
                         help='if use large margin softmax')
@@ -177,7 +217,7 @@ def parse_args():
                         help='if use verifi loss')
     parser.add_argument('--triplet', action='store_true', default=False,
                         help='if use triplet loss')
-    parser.add_argument('--lmnn', action='store_true', default=True,
+    parser.add_argument('--lmnn', action='store_true', default=False,
                         help='if use LMNN loss')    
     parser.add_argument('--center', action='store_true', default=False,
                         help='if use center loss')
@@ -189,6 +229,8 @@ def parse_args():
                         help='train file')
     parser.add_argument('--test-file', type=str, default="image_valid",
                         help='test file')
+    parser.add_argument('--set-index', type=str, default="set index (0-9 incase of prid, ilids-vid)",
+                        help='set index')
     parser.add_argument('--kv-store', type=str,
                         default='device', help='the kvstore type')
     parser.add_argument('--network', type=str,
@@ -199,26 +241,33 @@ def parse_args():
                         help='load model prefix')
     parser.add_argument('--even-iter', action='store_true', default=False,
                         help='if use even iterator')
+    parser.add_argument('--save-dir', type=str, default='log',
+                        help='dir to store the results')
     return parser.parse_args()
 
 
 def load_checkpoint(prefix, epoch):
     # symbol = sym.load('%s-symbol.json' % prefix)
-    save_dict = mx.nd.load('%s-%04d.params' % (prefix, epoch))
+    filename = '%s-%04d.params' % (prefix, epoch)
+    
     arg_params = {}
     aux_params = {}
-    for k, v in save_dict.items():
-        tp, name = k.split(':', 1)
-        if tp == 'arg':
-            arg_params[name] = v
-        if tp == 'aux':
-            aux_params[name] = v
+    
+    if os.path.exists(filename):
+        save_dict = mx.nd.load(filename)
+        for k, v in save_dict.items():
+            tp, name = k.split(':', 1)
+            if tp == 'arg':
+                arg_params[name] = v
+            if tp == 'aux':
+                aux_params[name] = v
+
     return (arg_params, aux_params)
 
 
 args = parse_args()
 
-print args
+print(args)
 batch_size = args.batch_size
 num_epoch = args.num_epoches
 devices = [mx.gpu(int(i)) for i in args.gpus.split(',')]
@@ -227,7 +276,7 @@ num_images = args.num_examples
 
 
 arg_params, aux_params = load_checkpoint(
-    'models/%s' % args.model_load_prefix, args.model_load_epoch)
+    '%s/%s' % (args.save_dir, args.model_load_prefix), args.model_load_epoch)
 
 symbol = importlib.import_module(
     'symbol_' + args.network).get_symbol()
@@ -238,8 +287,8 @@ net = build_network(symbol, num_id=args.num_id, batchsize= batch_size)
 kv = mx.kvstore.create(args.kv_store)
 train, val = get_iterators(
     batch_size=batch_size, input_shape=(3, 224, 112),
-    train=args.train_file, test=args.test_file, kv=kv, gpus=len(devices))
-print train.batch_size
+    train=args.train_file, test=args.test_file, set_index=args.set_index, kv=kv, gpus=len(devices))
+print(train.batch_size)
 #train = get_imRecordIter(args.train_file, (3, 224, 112), batch_size, kv)
 #val = get_imRecordIter(args.test_file, (3, 224, 112), batch_size, kv)
 
@@ -255,18 +304,20 @@ sgd = SGD(learning_rate=args.lr, momentum=0.9,
           rescale_grad=1.0 / batch_size)
 
 
-logging.basicConfig(filename='log/%s.log' % args.mode, level=logging.DEBUG)
+logging.basicConfig(filename='%s/%s.log' % (args.save_dir, args.mode), level=logging.DEBUG)
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 logging.info(args)
 
 print ('begining of mx.model.feedforward')
 
-model = mx.model.FeedForward(
-    symbol=net, ctx=devices, num_epoch=num_epoch, arg_params=arg_params,
-    aux_params=aux_params, initializer=init, optimizer=sgd)
+model = mx.mod.Module(symbol=net, context=devices, logger=logger)
 
-prefix = 'models/%s' % args.mode
+#model = mx.model.FeedForward(
+    # symbol=net, ctx=devices, num_epoch=num_epoch, arg_params=arg_params,
+    # aux_params=aux_params, initializer=init, optimizer=sgd)
+
+prefix = '%s/%s' % (args.save_dir, args.mode)
 num = 1
 if args.verifi:
     num += 1
@@ -278,9 +329,15 @@ if args.center:
     num += 1
     
 
-eval_metric=Multi_Metric(num=num, cls=1)
+eval_metric=Multi_Metric(num=num, cls=1, logger= logger)
 epoch_end_callback=mx.callback.do_checkpoint(prefix)
 batch_end_callback=mx.callback.Speedometer(batch_size=batch_size)
 print ('begining of model.fit')
-model.fit(X=train, eval_data=val, eval_metric=eval_metric, logger=logger, epoch_end_callback=epoch_end_callback, batch_end_callback=batch_end_callback)
+#model.fit(X=train, eval_data=val, eval_metric=eval_metric, logger=logger, epoch_end_callback=epoch_end_callback, batch_end_callback=batch_end_callback)
+
+model.fit(train, eval_data=val, eval_metric=eval_metric, 
+                epoch_end_callback=epoch_end_callback, batch_end_callback=batch_end_callback, 
+                optimizer=sgd, arg_params=arg_params,aux_params=aux_params, num_epoch=num_epoch, 
+                initializer=init, allow_missing=True)
+
 print('done')

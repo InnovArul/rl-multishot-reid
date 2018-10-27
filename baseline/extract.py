@@ -51,7 +51,7 @@ def extract_feature(model, iterator, sav_name, num, batch_size):
         feature[now:now+real_size] = output
         now += real_size
 
-    print feature.shape, now
+    print(feature.shape, now)
     h5f = h5py.File(sav_name, 'w')
     h5f.create_dataset('feat', data=feature)
     h5f.close()
@@ -103,7 +103,7 @@ def load_checkpoint(prefix, epoch):
 
 args = parse_args()
 
-print args
+print(args)
 batch_size = args.batch_size
 devices = [mx.gpu(int(i)) for i in args.gpus.split(',')]
 

@@ -17,7 +17,7 @@ class verifi_iterator(mx.io.DataIter):
         self.use_verifi = use_verifi
         self.use_center = use_center
         self.use_lsoftmax = use_lsoftmax
-        print "gpus", self.gpus
+        print("gpus", self.gpus)
 
     @property
     def provide_data(self):
@@ -54,9 +54,9 @@ class verifi_iterator(mx.io.DataIter):
 
         def concat_array(data1, data2, gpus, ndarray=True):
             n = data2.shape[0]
-            k = n / gpus
+            k = int(n / gpus)
             data_lst = []
-            for i in range(0, n, n / gpus):
+            for i in range(0, n, k):
                 data_lst.append(data1[i:i + k])
                 data_lst.append(data2[i:i + k])
 

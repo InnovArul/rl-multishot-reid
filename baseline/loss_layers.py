@@ -265,7 +265,7 @@ class lmnnLoss(mx.operator.CustomOp):
             #label=in_data[1].asnumpy()
             ctx = x.context
             y = mx.nd.zeros((x.shape[0], ), ctx=ctx)
-            halfsize = x.shape[0]/2
+            halfsize = int(x.shape[0]/2)
             for i in range(halfsize):
                 pid = i + 1 if i % 2 == 0 else i - 1
                 pdiff = x[i] - x[pid]
@@ -294,7 +294,7 @@ class lmnnLoss(mx.operator.CustomOp):
             #label = in_data[1]
             #xhalf=x[halfsize:x.shape[0]]
             
-            for i in range(batchsize/2):
+            for i in range(int(batchsize/2)):
                 #print "gradient computation", i
                 pid = i + 1 if i % 2 == 0 else i - 1
                 grad[i] +=  x[i] - x[pid]

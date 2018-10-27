@@ -75,7 +75,7 @@ def build_base_net(args, is_train=False, global_stats=False):
     return l2
 
 args = parse_args()
-print args
+print(args)
 devices = [mx.gpu(int(i)) for i in args.gpus.split(',')]
 batch_size = args.batch_size
 model_path = 'models'
@@ -109,7 +109,7 @@ for sets in xrange(10):
     output = base_mod.predict(dataiter)
     F = output
     F2 = F
-    print F.shape
+    print(F.shape)
 
     cnt_lst = np.loadtxt(args.data_dir + '/' + 'image_test' + str(sets) + '.txt').astype(int)
     N = cnt_lst.shape[0] / 2
@@ -148,10 +148,10 @@ for sets in xrange(10):
             if min(scores[:, j]) == scores[a, j]:
                 cmc1[j] += 1
         gc += 1
-        print gc
-        print MAP[:10] / gc
-        print cmc1[:10] / gc
+        print(gc)
+        print(MAP[:10] / gc)
+        print(cmc1[:10] / gc)
         update_cnts(d, cnts, cnt, N, i if i < N else i - N)
         update_cnts(d, cnts_g, cnt_g, N, i if i < N else i - N)
-        print i, norm_cnts(cnts, cnt), norm_cnts(cnts_g, cnt_g)
+        print(i, norm_cnts(cnts, cnt), norm_cnts(cnts_g, cnt_g))
     results.append((cnts, cnt))
