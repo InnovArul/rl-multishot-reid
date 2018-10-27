@@ -1,3 +1,11 @@
+<h3> Changes from <a href='https://github.com/TuSimple/rl-multishot-reid'> TuSimple/rl-multishot-reid </a></h3>
+
+- [x] Adapted the baseline model files (./baseline) a bit to run it on Python3 + MXNet 1.3.0
+- [ ] adapt RL baseline to run it on MXNet 1.3.0
+- [ ] Check the reproduction of results
+
+----
+
 * [Multi-shot Re-identification](#1)
 * [Preparations](#1.1)
 * [Usage](#1.2)
